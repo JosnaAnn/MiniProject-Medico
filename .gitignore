@@ -1,0 +1,17 @@
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Node / Composer folders (if used)
+node_modules/
+vendor/
+
+# Environment files
+.env
+
+# IDE/editor files
+*.log
+.vscode/
+
+# Custom: If you store tokens locally
+data.json
