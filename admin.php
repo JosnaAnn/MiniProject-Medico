@@ -1,5 +1,13 @@
 <?php
 session_start();
+
+// Logout Logic
+if (isset($_POST['logout'])) {
+  session_destroy();
+  header("Location: index.php");
+  exit();
+}
+
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
   die("Access denied.");
 }
@@ -14,12 +22,35 @@ $result = $conn->query("SELECT * FROM patients ORDER BY id DESC");
   <meta charset="UTF-8">
   <title>Admin - Patient Records</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .logout-btn {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .logout-btn:hover {
+      background-color: #c0392b;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body class="admin-body">
   <div class="container-admin">
     <div class="header">
       <div class="logo">Med<span>Co</span></div>
       <h2 class="title">All Patient Records</h2>
+      <form method="POST">
+        <button type="submit" name="logout" class="logout-btn">Logout</button>
+      </form>
     </div>
 
     <div class="table-wrapper">

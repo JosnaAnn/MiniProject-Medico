@@ -62,8 +62,7 @@
 
     <div class="btn-group">
       <a href="register.php">User</a>
-      <a href="login.php">Admin</a>
-      <a href="login.php">Superadmin</a>
+      <a href="login.php">Login</a>
     </div>
   </div>
 </body>

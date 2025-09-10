@@ -56,7 +56,10 @@ background-color: #fffaf0;
   align-items: center;
   margin-bottom: 30px;
 }
-
+a{
+  text-decoration: none;
+  color: inherit;
+}
 h2.title {
   font-size: 24px;
   font-weight: bold;
