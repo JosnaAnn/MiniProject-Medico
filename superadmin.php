@@ -1,277 +1,227 @@
 <?php
+// superadmin.php (modern UI)
 session_start();
-$conn = new mysqli("localhost", "root", "", "miniproject");
+$conn = new mysqli("localhost","root","","miniproject");
+if ($conn->connect_error) die("DB Error");
 
-// Logout Logic
-if (isset($_POST['logout'])) {
-  session_destroy();
-  header("Location: index.php");
-  exit();
+// security
+if (!isset($_SESSION['superadmin_logged_in']) || $_SESSION['superadmin_logged_in'] !== true) {
+    header("Location: login.php"); exit();
 }
 
-// Ensure only superadmin can access
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'superadmin') {
-  die("Access denied.");
-}
+$success = $error = '';
 
-// Add Hospital + Admin
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_hospital_admin'])) {
-  $hname = trim($_POST['hospital_name']);
-  $location = trim($_POST['location']);
-  $contact = trim($_POST['contact']);
-  $username = trim($_POST['username']);
-  $password = trim($_POST['password']);
+function clean($v){ return trim($v ?? ''); }
 
-  if ($hname && $location && $contact && $username && $password) {
-    $stmt1 = $conn->prepare("INSERT INTO hospitals (name, location, contact) VALUES (?, ?, ?)");
-    $stmt1->bind_param("sss", $hname, $location, $contact);
-    $stmt1->execute();
-    $hospital_id = $conn->insert_id;
+/* Handle form actions: add_hospital_admin, update_hospital, update_admin, delete_admin, delete_hospital */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // logout
+    if (isset($_POST['logout'])) { session_destroy(); header("Location: login.php"); exit(); }
 
-    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-    $stmt2 = $conn->prepare("INSERT INTO users (username, password, role, hospital_id) VALUES (?, ?, 'admin', ?)");
-    $stmt2->bind_param("ssi", $username, $hashedPassword, $hospital_id);
-    $stmt2->execute();
-
-    $success = "🏥 Hospital and admin added successfully!";
-  } else {
-    $error = "⚠️ All fields are required.";
-  }
-}
-
-// Update Hospital
-if (isset($_POST['update_hospital'])) {
-  $id = intval($_POST['update_hospital_id']);
-  $name = trim($_POST['hospital_name']);
-  $location = trim($_POST['location']);
-  $contact = trim($_POST['contact']);
-
-  if ($name && $location && $contact) {
-    $stmt = $conn->prepare("UPDATE hospitals SET name=?, location=?, contact=? WHERE id=?");
-    $stmt->bind_param("sssi", $name, $location, $contact, $id);
-    $stmt->execute();
-    $success = "🏥 Hospital updated successfully!";
-  } else {
-    $error = "⚠️ All fields are required to update hospital.";
-  }
-}
-
-// Update Admin
-if (isset($_POST['update_admin'])) {
-  $id = intval($_POST['update_admin_id']);
-  $username = trim($_POST['username']);
-  $password = trim($_POST['password']);
-
-  if ($username) {
-    if ($password) {
-      $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-      $stmt = $conn->prepare("UPDATE users SET username=?, password=? WHERE id=? AND role='admin'");
-      $stmt->bind_param("ssi", $username, $hashedPassword, $id);
-    } else {
-      $stmt = $conn->prepare("UPDATE users SET username=? WHERE id=? AND role='admin'");
-      $stmt->bind_param("si", $username, $id);
+    // add
+    if (isset($_POST['add_hospital_admin'])) {
+        $hname = clean($_POST['hospital_name']);
+        $hcode = strtoupper(preg_replace('/\s+/','',clean($_POST['hospital_code'])));
+        $location = clean($_POST['location']);
+        $contact = clean($_POST['contact']);
+        $username = clean($_POST['username']);
+        $password = clean($_POST['password']);
+        if (!$hname||!$hcode||!$location||!$contact||!$username||!$password) $error="All fields required";
+        elseif (!preg_match('/^\d{10}$/',$contact)) $error="Contact must be 10 digits";
+        else {
+            // unique code check
+            $chk = $conn->prepare("SELECT id FROM hospitals WHERE hospital_code=?");
+            $chk->bind_param("s",$hcode); $chk->execute();
+            if ($chk->get_result()->num_rows>0) { $error="Hospital code exists"; }
+            else {
+                $conn->begin_transaction();
+                try {
+                    $s1 = $conn->prepare("INSERT INTO hospitals (name,hospital_code,location,contact,registered_at) VALUES (?,?,?,?,NOW())");
+                    $s1->bind_param("ssss",$hname,$hcode,$location,$contact); $s1->execute();
+                    $hid = $conn->insert_id;
+                    $hash = password_hash($password,PASSWORD_DEFAULT);
+                    $s2 = $conn->prepare("INSERT INTO users (username,password,role,hospital_id) VALUES (?,?, 'admin', ?)");
+                    $s2->bind_param("ssi",$username,$hash,$hid); $s2->execute();
+                    $conn->commit();
+                    $success = "Hospital and admin added.";
+                } catch(Exception $e) { $conn->rollback(); $error = "Failed: ".$e->getMessage(); }
+            }
+        }
     }
-    $stmt->execute();
-    $success = "👤 Admin updated successfully!";
-  } else {
-    $error = "⚠️ Username is required.";
-  }
+
+    // update hospital
+    if (isset($_POST['update_hospital'])) {
+        $id = intval($_POST['update_hospital_id']);
+        $name = clean($_POST['hospital_name']);
+        $hcode = strtoupper(preg_replace('/\s+/','',clean($_POST['hospital_code'])));
+        $location = clean($_POST['location']);
+        $contact = clean($_POST['contact']);
+        if (!$name||!$hcode||!$location||!$contact) $error="All fields required";
+        else {
+            $chk = $conn->prepare("SELECT id FROM hospitals WHERE hospital_code=? AND id<>?");
+            $chk->bind_param("si",$hcode,$id); $chk->execute();
+            if ($chk->get_result()->num_rows>0) $error="Another hospital uses this code";
+            else {
+                $u = $conn->prepare("UPDATE hospitals SET name=?, hospital_code=?, location=?, contact=? WHERE id=?");
+                $u->bind_param("ssssi",$name,$hcode,$location,$contact,$id); $u->execute(); $success="Hospital updated";
+            }
+        }
+    }
+
+    // update admin
+    if (isset($_POST['update_admin'])) {
+        $id = intval($_POST['update_admin_id']);
+        $username = clean($_POST['username']);
+        $password = clean($_POST['password'] ?? '');
+        if (!$username) $error="Username required";
+        else {
+            if ($password) {
+                $hash = password_hash($password,PASSWORD_DEFAULT);
+                $u = $conn->prepare("UPDATE users SET username=?, password=? WHERE id=? AND role='admin'");
+                $u->bind_param("ssi",$username,$hash,$id);
+            } else {
+                $u = $conn->prepare("UPDATE users SET username=? WHERE id=? AND role='admin'");
+                $u->bind_param("si",$username,$id);
+            }
+            $u->execute(); $success="Admin updated";
+        }
+    }
+
+    // delete admin
+    if (isset($_POST['delete_admin'])) {
+        $adminId = intval($_POST['admin_id']);
+        $d = $conn->prepare("DELETE FROM users WHERE id=? AND role='admin'");
+        $d->bind_param("i",$adminId); $d->execute(); $success="Admin removed";
+    }
+
+    // delete hospital (if no patients and no admins)
+    if (isset($_POST['delete_hospital'])) {
+        $hospitalId = intval($_POST['hospital_id']);
+        $ch = $conn->prepare("SELECT id FROM patients WHERE hospital_id=? LIMIT 1"); $ch->bind_param("i",$hospitalId); $ch->execute();
+        $hasP = $ch->get_result()->num_rows>0; $ch->close();
+        $ca = $conn->prepare("SELECT id FROM users WHERE hospital_id=? AND role='admin' LIMIT 1"); $ca->bind_param("i",$hospitalId); $ca->execute();
+        $hasA = $ca->get_result()->num_rows>0; $ca->close();
+        if ($hasP) $error="Cannot delete hospital with patient records.";
+        elseif ($hasA) $error="Remove admins first.";
+        else { $d = $conn->prepare("DELETE FROM hospitals WHERE id=?"); $d->bind_param("i",$hospitalId); $d->execute(); $success="Hospital removed"; }
+    }
 }
 
-// Delete Admin
-if (isset($_POST['delete_admin'])) {
-  $adminId = $_POST['admin_id'];
-  $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND role = 'admin'");
-  $stmt->bind_param("i", $adminId);
-  $stmt->execute();
-  $success = "🗑️ Admin removed successfully!";
-}
-
-// Delete Hospital
-if (isset($_POST['delete_hospital'])) {
-  $hospitalId = intval($_POST['hospital_id']);
-  $check = $conn->query("SELECT id FROM users WHERE hospital_id = $hospitalId AND role = 'admin'");
-  if ($check->num_rows > 0) {
-    $error = "⚠️ Cannot delete hospital with assigned admins.";
-  } else {
-    $stmt = $conn->prepare("DELETE FROM hospitals WHERE id = ?");
-    $stmt->bind_param("i", $hospitalId);
-    $stmt->execute();
-    $success = "🏥 Hospital removed successfully!";
-  }
-}
-
-// Fetch data
-$admins = $conn->query("
-  SELECT users.id, users.username, hospitals.name AS hospital 
-  FROM users 
-  LEFT JOIN hospitals ON users.hospital_id = hospitals.id 
-  WHERE users.role = 'admin'
-");
-
+// fetch lists
+$admins = $conn->query("SELECT u.id,u.username,h.name AS hospital,h.hospital_code FROM users u LEFT JOIN hospitals h ON u.hospital_id=h.id WHERE u.role='admin' ORDER BY u.id DESC");
 $hospitals = $conn->query("SELECT * FROM hospitals ORDER BY registered_at DESC");
 ?>
-
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Superadmin - MediCo</title>
+  <meta charset="utf-8">
+  <title>Superadmin • MediCo</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    .form-group { margin-bottom: 15px; }
-    .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
-    .message { margin: 10px 0; color: green; }
-    .error { margin: 10px 0; color: red; }
-    .delete-btn {
-      background-color: #e74c3c;
-      color: white;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .delete-btn:hover { background-color: #c0392b; }
-    .logout-btn {
-      background-color: #3498db;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      float: right;
-    }
-    .logout-btn:hover { background-color: #2980b9; }
-    .header { display: flex; justify-content: space-between; align-items: center; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    table, th, td { border: 1px solid #ddd; }
-    th, td { padding: 10px; text-align: left; }
-    thead { background-color: #f5f5f5; }
-    .container { max-width: 1000px; margin: auto; padding: 20px; }
-    .logo { font-size: 22px; font-weight: bold; }
-    .logo span { color: #2ecc71; }
-  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">Medi<span>Co</span></div>
-      <h2 class="title">Superadmin Panel</h2>
-      <form method="POST">
-        <button type="submit" name="logout" class="logout-btn">Logout</button>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">Medi<span>Co</span></div>
+    <nav class="nav">
+      <a class="active" href="#"><i class="fa fa-cog"></i> Superadmin</a>
+      <a href="#"><i class="fa fa-hospital"></i> Hospitals</a>
+      <a href="#"><i class="fa fa-users"></i> Admins</a>
+      <form method="POST" style="margin-top:12px;"><button name="logout" class="btn ghost" style="width:100%"><i class="fa fa-right-from-bracket"></i> Logout</button></form>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-row">
+      <div>
+        <div class="header-title">Superadmin Panel</div>
+        <div class="small hint">Manage hospitals and hospital admins</div>
+      </div>
+    </div>
+
+    <?php if($success): ?><div class="card"><strong style="color:green"><?=htmlspecialchars($success)?></strong></div><?php endif; ?>
+    <?php if($error): ?><div class="card"><strong style="color:red"><?=htmlspecialchars($error)?></strong></div><?php endif; ?>
+
+    <div class="card">
+      <h3>Add Hospital & Admin</h3>
+      <form method="POST" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <input type="text" name="hospital_name" placeholder="Hospital Name" required>
+        <input type="text" name="hospital_code" placeholder="Hospital Code (e.g., STH)" required>
+        <input type="text" name="location" placeholder="Location" required>
+        <input type="text" name="contact" placeholder="Contact (10 digits)" required>
+        <input type="text" name="username" placeholder="Admin Username" required>
+        <input type="password" name="password" placeholder="Admin Password" required>
+        <div style="grid-column:1/3">
+          <button class="btn primary" name="add_hospital_admin" type="submit">Add Hospital & Admin</button>
+        </div>
       </form>
     </div>
 
-    <?php if (isset($success)): ?>
-      <p class="message"><?= $success ?></p>
-    <?php elseif (isset($error)): ?>
-      <p class="error"><?= $error ?></p>
-    <?php endif; ?>
+    <div class="card">
+      <h3>Current Admins</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Username</th><th>Hospital</th><th>Code</th><th>Actions</th></tr></thead>
+          <tbody>
+            <?php $i=1; while($row=$admins->fetch_assoc()): ?>
+              <tr>
+                <td><?=$i++?></td>
+                <td><?=htmlspecialchars($row['username'])?></td>
+                <td><?=htmlspecialchars($row['hospital'] ?? '-')?></td>
+                <td><?=htmlspecialchars($row['hospital_code'] ?? '-')?></td>
+                <td>
+                  <form method="POST" style="display:inline-block">
+                    <input type="hidden" name="edit_admin_id" value="<?=intval($row['id'])?>">
+                    <input type="hidden" name="admin_username" value="<?=htmlspecialchars($row['username'])?>">
+                    <button name="edit_admin" class="btn ghost" formaction="superadmin.php">Edit</button>
+                  </form>
+                  <form method="POST" style="display:inline-block" onsubmit="return confirm('Remove admin?')">
+                    <input type="hidden" name="admin_id" value="<?=intval($row['id'])?>">
+                    <button name="delete_admin" class="btn ghost">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <?php endwhile; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-    <?php if (isset($_POST['edit_hospital'])): ?>
-      <h3>Edit Hospital</h3>
-      <form method="POST">
-        <input type="hidden" name="update_hospital_id" value="<?= $_POST['edit_hospital_id'] ?>">
-        <div class="form-group">
-          <input type="text" name="hospital_name" value="<?= $_POST['hospital_name'] ?>" required>
-        </div>
-        <div class="form-group">
-          <input type="text" name="location" value="<?= $_POST['location'] ?>" required>
-        </div>
-        <div class="form-group">
-          <input type="text" name="contact" value="<?= $_POST['contact'] ?>" required>
-        </div>
-        <button type="submit" name="update_hospital">Update Hospital</button>
-      </form>
-    <?php elseif (isset($_POST['edit_admin'])): ?>
-      <h3>Edit Admin</h3>
-      <form method="POST">
-        <input type="hidden" name="update_admin_id" value="<?= $_POST['edit_admin_id'] ?>">
-        <div class="form-group">
-          <input type="text" name="username" value="<?= $_POST['admin_username'] ?>" required>
-        </div>
-        <div class="form-group">
-          <input type="password" name="password" placeholder="New Password (optional)">
-        </div>
-        <button type="submit" name="update_admin">Update Admin</button>
-      </form>
-    <?php else: ?>
-      <!-- Add Hospital + Admin -->
-      <h3>Add Hospital & Admin</h3>
-      <form method="POST">
-        <div class="form-group"><input type="text" name="hospital_name" placeholder="Hospital Name" required></div>
-        <div class="form-group"><input type="text" name="location" placeholder="Hospital Location" required></div>
-        <div class="form-group"><input type="text" name="contact" placeholder="Hospital Contact" required></div>
-        <div class="form-group"><input type="text" name="username" placeholder="Admin Username" required></div>
-        <div class="form-group"><input type="password" name="password" placeholder="Admin Password" required></div>
-        <button type="submit" name="add_hospital_admin">Add Hospital & Admin</button>
-      </form>
-    <?php endif; ?>
+    <div class="card">
+      <h3>Registered Hospitals</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Code</th><th>Location</th><th>Contact</th><th>Actions</th></tr></thead>
+          <tbody>
+            <?php $j=1; while($row=$hospitals->fetch_assoc()): ?>
+              <tr>
+                <td><?=$j++?></td>
+                <td><?=htmlspecialchars($row['name'])?></td>
+                <td><?=htmlspecialchars($row['hospital_code'])?></td>
+                <td><?=htmlspecialchars($row['location'])?></td>
+                <td><?=htmlspecialchars($row['contact'])?></td>
+                <td>
+                  <form method="POST" style="display:inline-block">
+                    <input type="hidden" name="edit_hospital_id" value="<?=intval($row['id'])?>">
+                    <input type="hidden" name="hospital_name" value="<?=htmlspecialchars($row['name'])?>">
+                    <input type="hidden" name="hospital_code" value="<?=htmlspecialchars($row['hospital_code'])?>">
+                    <input type="hidden" name="location" value="<?=htmlspecialchars($row['location'])?>">
+                    <input type="hidden" name="contact" value="<?=htmlspecialchars($row['contact'])?>">
+                    <button name="edit_hospital" class="btn ghost">Edit</button>
+                  </form>
+                  <form method="POST" style="display:inline-block" onsubmit="return confirm('Delete hospital?')">
+                    <input type="hidden" name="hospital_id" value="<?=intval($row['id'])?>">
+                    <button name="delete_hospital" class="btn ghost">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <?php endwhile; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-    <!-- Admins -->
-    <h3 style="margin-top: 40px;">Current Admins</h3>
-    <table>
-      <thead>
-        <tr><th>#</th><th>Username</th><th>Hospital</th><th>Edit</th><th>Delete</th></tr>
-      </thead>
-      <tbody>
-        <?php $i = 1; while ($row = $admins->fetch_assoc()): ?>
-          <tr>
-            <td><?= $i++ ?></td>
-            <td><?= htmlspecialchars($row['username']) ?></td>
-            <td><?= htmlspecialchars($row['hospital'] ?? 'N/A') ?></td>
-            <td>
-              <form method="POST">
-                <input type="hidden" name="edit_admin_id" value="<?= $row['id'] ?>">
-                <input type="hidden" name="admin_username" value="<?= htmlspecialchars($row['username']) ?>">
-                <button type="submit" name="edit_admin" class="delete-btn" style="background-color:#f39c12;">Edit</button>
-              </form>
-            </td>
-            <td>
-              <form method="POST" onsubmit="return confirm('Delete this admin?');">
-                <input type="hidden" name="admin_id" value="<?= $row['id'] ?>">
-                <button type="submit" name="delete_admin" class="delete-btn">Remove</button>
-              </form>
-            </td>
-          </tr>
-        <?php endwhile; ?>
-      </tbody>
-    </table>
-
-    <!-- Hospitals -->
-    <h3 style="margin-top: 40px;">Registered Hospitals</h3>
-    <table>
-      <thead>
-        <tr><th>#</th><th>Name</th><th>Location</th><th>Contact</th><th>Registered</th><th>Edit</th><th>Delete</th></tr>
-      </thead>
-      <tbody>
-        <?php $j = 1; while ($row = $hospitals->fetch_assoc()): ?>
-          <tr>
-            <td><?= $j++ ?></td>
-            <td><?= htmlspecialchars($row['name']) ?></td>
-            <td><?= htmlspecialchars($row['location']) ?></td>
-            <td><?= htmlspecialchars($row['contact']) ?></td>
-            <td><?= date("d M Y, h:i A", strtotime($row['registered_at'])) ?></td>
-            <td>
-              <form method="POST">
-                <input type="hidden" name="edit_hospital_id" value="<?= $row['id'] ?>">
-                <input type="hidden" name="hospital_name" value="<?= htmlspecialchars($row['name']) ?>">
-                <input type="hidden" name="location" value="<?= htmlspecialchars($row['location']) ?>">
-                <input type="hidden" name="contact" value="<?= htmlspecialchars($row['contact']) ?>">
-                <button type="submit" name="edit_hospital" class="delete-btn" style="background-color:#f39c12;">Edit</button>
-              </form>
-            </td>
-            <td>
-              <form method="POST" onsubmit="return confirm('Delete this hospital?');">
-                <input type="hidden" name="hospital_id" value="<?= $row['id'] ?>">
-                <button type="submit" name="delete_hospital" class="delete-btn">Delete</button>
-              </form>
-            </td>
-          </tr>
-        <?php endwhile; ?>
-      </tbody>
-    </table>
-
-  </div>
+  </main>
+</div>
 </body>
 </html>

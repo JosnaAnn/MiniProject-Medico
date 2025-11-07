@@ -1,213 +1,224 @@
-/* Universal Reset */
+/* ===== MediCo Dashboard — Clean White / Blue / Green Theme ===== */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+:root {
+  --primary: #2196F3;
+  --accent: #004b1f;
+  --bg: #F8FAFD;
+  --card: #FFFFFF;
+  --border: #E2E8F0;
+  --text: #1E293B;
+  --muted: #64748B;
+  --radius: 12px;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
 }
-.admin-body {
-  background-color: #fdf1dc;
-  width: 100%;
-}
-.container-admin {
-    margin: 3em;
-  background-color: #fffaf0;
-  width: 100%;
-    justify-content: center;
-  padding: 40px;
-  border-radius: 12px;
-}
-/* Body Styling */
+
 body {
-  font-family: 'Segoe UI', sans-serif;
-  background-color: #fdf1dc;
-  color: #333;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+/* ===== LAYOUT ===== */
+.app {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 2em;
-
+  min-height: 100vh;
 }
 
-/* Main container */
-.container {
-background-color: #fffaf0;
-  width:800px;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+/* Sidebar */
+.sidebar {
+  width: 250px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  box-shadow: 4px 0 10px rgba(0, 0, 0, 0.03);
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
 }
 
-/* Logo and Header */
 .logo {
-  font-size: 32px;
-  font-weight: bold;
-  color: #00ac4f;
-  font-family: 'Brush Script MT', cursive;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 25px;
 }
-
 .logo span {
-  color: #008fc7;
-  font-family: 'Brush Script MT', sans-serif;
+  color: var(--accent);
 }
 
-.header {
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav a {
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 500;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: 0.25s;
+}
+
+.nav a:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.nav a.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.nav a i {
+  width: 20px;
+  text-align: center;
+}
+
+/* ===== MAIN ===== */
+.main {
+  flex: 1;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-}
-a{
-  text-decoration: none;
-  color: inherit;
-}
-h2.title {
-  font-size: 24px;
-  font-weight: bold;
-  color: #222;
-}
-h2.to{
-    margin-bottom: 0.5em;
-    text-align: center;
+  flex-wrap: wrap;
 }
 
-/* Form Styling */
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-label {
+.header-title {
+  font-size: 22px;
   font-weight: 600;
+  color: var(--primary);
 }
 
-input[type="text"],
-input[type="number"],
-input[type="tel"],
-select,
-textarea {
-  padding: 10px 12px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 16px;
+.hint {
+  color: var(--muted);
+  font-size: 14px;
 }
 
-/* Gender */
-.gender label {
-  margin-right: 20px;
-  font-weight: normal;
+/* ===== CARD ===== */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  border: 1px solid var(--border);
 }
 
-/* Button */
-button, .btn {
-  background-color: #00a3cc;
-  color: white;
+/* ===== BUTTONS ===== */
+.btn {
+  padding: 8px 14px;
   border: none;
-  padding: 10px 18px;
   border-radius: 8px;
+  font-weight: 500;
   cursor: pointer;
-  font-weight: bold;
-  font-size: 16px;
-  width: fit-content;
-  align-self: center;
+  transition: 0.25s;
 }
 
-button:hover, .btn:hover {
-  background-color: #007ea1;
+.btn.primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn.primary:hover {
+  background: #1976D2;
 }
 
-/* Table Styling for Admin */
-/* Admin/Superadmin Table Styling */
-.table-wrapper {
-  margin-top: 20px;
+.btn.success {
+  background: var(--accent);
+  color: #fff;
+}
+.btn.success:hover {
+  background: #009E47;
+}
+
+.btn.ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+}
+.btn.ghost:hover {
+  background: #E3F2FD;
+}
+
+/* ===== TABLE ===== */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  border-radius: 8px;
-  overflow: hidden;
-  font-size: 16px;
+  min-width: 800px;
+  background: var(--card);
 }
 
-th, td {
-  padding: 14px 16px;
-  border: 1px solid #e0e0e0;
+thead {
+  background: var(--primary);
+  color: white;
+}
+
+thead th {
+  padding: 12px 16px;
   text-align: left;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-th {
-  background-color: #00a3cc;
-  color: #fff;
-  font-weight: 600;
-  text-transform: uppercase;
+tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
 }
 
-tr:nth-child(even) {
-  background-color: #f9f9f9;
+tbody tr:nth-child(even) {
+  background: #F4F7FB;
 }
 
-tr:hover {
-  background-color: #eef9ff;
-  transition: background-color 0.3s;
+tbody tr:hover td {
+  background: #E3F2FD;
 }
 
-/* Back Button (used in dept.html or token) */
-.back-btn {
-  margin-bottom: 10px;
-  font-size: 18px;
-  color: #008fc7;
-  cursor: pointer;
-  text-decoration: none;
+/* ===== FORM INPUTS ===== */
+input, select, textarea {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  width: 100%;
+  font-size: 14px;
+  transition: border-color 0.2s;
 }
- .login-box {
-      max-width: 400px;
-      margin: 100px auto;
-      background-color: #fffaf0;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.1);
-      text-align: center;
-    }
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(33,150,243,0.15);
+}
 
-    .login-box h2 {
-      margin-bottom: 25px;
-    }
-
-    .login-box input {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-    }
-
-    .login-box button {
-      background-color: #00a3cc;
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      width: 100%;
-    }
-
-    .login-box button:hover {
-      background-color: #007ea1;
-    }
-
-    .error {
-      color: red;
-      margin-bottom: 10px;
-    }
-
-    .logo {
-      font-size: 32px;
-      font-family: 'Brush Script MT', cursive;
-      color: #00ac4f;
-    }
-
-    .logo span {
-      color: #008fc7;
-    }
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .sidebar {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  .main {
+    padding: 18px;
+  }
+}
