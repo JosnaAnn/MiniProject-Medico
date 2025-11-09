@@ -138,6 +138,7 @@ $q->close();
 <title><?= htmlspecialchars($hospital_name) ?> • Admin Panel</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
+/* same styles you provided */
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',sans-serif;}
 body{background:#eaf3f8;display:flex;min-height:100vh;}
 .sidebar{
@@ -226,6 +227,7 @@ footer{text-align:center;font-size:12px;color:#777;margin-top:20px;}
     <div class="card">
       <h2>Filter by Department</h2>
       <form method="GET">
+        <input type="hidden" name="section" value="patients">
         <select name="department">
           <option value="">All Departments</option>
           <?php foreach ($departments as $dep): ?>
@@ -263,15 +265,19 @@ footer{text-align:center;font-size:12px;color:#777;margin-top:20px;}
         <button name="export_summary"><i class="fa fa-download"></i> Export Summary</button>
       </form>
       <table>
-        <thead><tr><th>Date</th>
-          <?php foreach ($departments as $dep): ?><th><?= $dep ?></th><?php endforeach; ?><th>Total</th></tr>
+        <thead>
+          <tr><th>Date</th>
+          <?php foreach ($departments as $dep): ?><th><?= $dep ?></th><?php endforeach; ?>
+          <th>Total</th></tr>
         </thead>
         <tbody>
         <?php if (empty($summary)): ?>
           <tr><td colspan="<?= count($departments)+2 ?>" class="no-records">No data available.</td></tr>
         <?php else: foreach ($summary as $day => $depts): $total = array_sum($depts); ?>
           <tr><td><?= $day ?></td>
-            <?php foreach ($departments as $dep): ?><td><?= $depts[$dep] ?? 0 ?></td><?php endforeach; ?>
+            <?php foreach ($departments as $dep): ?>
+                <td><?= $depts[$dep] ?? 0 ?></td>
+            <?php endforeach; ?>
             <td><b><?= $total ?></b></td>
           </tr>
         <?php endforeach; endif; ?>
@@ -284,14 +290,32 @@ footer{text-align:center;font-size:12px;color:#777;margin-top:20px;}
 </div>
 
 <script>
+// Sidebar switching
 document.querySelectorAll(".nav-link").forEach(link=>{
   link.addEventListener("click",e=>{
     e.preventDefault();
+
+    // ✅ Force reload for Patients
+    if (link.dataset.section === "patients") {
+      window.location.href = "admin.php?section=patients";
+      return;
+    }
+
     document.querySelectorAll(".nav-link").forEach(l=>l.classList.remove("active"));
     link.classList.add("active");
     document.querySelectorAll(".section").forEach(s=>s.classList.add("hidden"));
     document.getElementById(link.dataset.section).classList.remove("hidden");
   });
+});
+
+// ✅ Auto open patients after reload
+window.addEventListener("load", function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("section") === "patients") {
+    document.querySelector("[data-section='patients']").classList.add("active");
+    document.querySelectorAll(".section").forEach(s=>s.classList.add("hidden"));
+    document.getElementById("patients").classList.remove("hidden");
+  }
 });
 </script>
 </body>

@@ -15,3 +15,6 @@ vendor/
 
 # Custom: If you store tokens locally
 data.json
+
+config_local.php
+send_sms.php
