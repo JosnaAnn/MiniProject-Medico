@@ -119,8 +119,8 @@
     <footer>
       <div>© <?= date("Y") ?> MediCo Hospital System</div>
       <div class="footer-links">
-        <a href="#"><i class="fa fa-info-circle"></i> About</a> |
-        <a href="#"><i class="fa fa-envelope"></i> Contact</a>
+        <a href="about.html"><i class="fa fa-info-circle"></i> About</a> |
+        <a href="contact.html"><i class="fa fa-envelope"></i> Contact</a>
       </div>
     </footer>
   </div>

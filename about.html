@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>About MediCo</title>
+<style>
+    /* --------------- GLOBAL LAYOUT --------------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    background: #eaf3f8;        /* same background tone */
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+/* --------------- ABOUT CONTAINER --------------- */
+.about-container {
+    background: #ffffff;
+    width: 90%;
+    max-width: 800px;
+    padding: 40px 50px;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    animation: fadeIn 0.3s ease; 
+}
+
+.section-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #222;           /* main title black */
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.section-title .medi {
+    color: #0078b7;        /* Medi blue*/
+    font-weight: 800;
+}
+
+.section-title .co {
+    color: #00bcd4;        /* Co light blue */
+    font-weight: 800;
+}
+
+
+.about-container p {
+    font-size: 16px;
+    color: #444;
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+
+/* --------------- BACK BUTTON --------------- */
+.back-btn {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 12px 22px;
+    background: #00bcd4;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 15px;
+    transition: 0.2s;
+}
+
+.back-btn:hover {
+    background: #009bb0;
+}
+
+/* --------------- ANIMATION --------------- */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --------------- RESPONSIVE --------------- */
+@media (max-width: 600px) {
+    .about-container {
+        padding: 25px 20px;
+    }
+    .about-container h1 {
+        font-size: 22px;
+    }
+    .about-container p {
+        font-size: 15px;
+    }
+}
+
+</style>
+</head>
+<body>
+
+<div class="about-container">
+  <h1 class="section-title">About <span class="medi">Medi</span><span class="co">Co</span></h1>
+
+
+    <p>MediCo is a smart OP ticket management system designed to simplify and fully digitalize patient registration and token handling inside hospitals.</p>
+
+    <p>The system automatically generates unique patient IDs, assigns department-based token numbers, and securely organizes patient data. This reduces manual workload and minimizes waiting time for patients.</p>
+
+    <p>MediCo supports multiple hospitals through a centralized Super Admin module. Hospital Admins can view and manage department-wise registrations, patient lists, and daily analytics, all from a clean and simple interface.</p>
+
+    <p>The platform is built to provide a seamless experience with modern UI, fast performance, and a structured workflow — ensuring accuracy, transparency, and efficient OP operations.</p>
+
+    <a href="index.php" class="back-btn">← Back to Home</a>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Contact • MediCo</title>
+<link rel="stylesheet" href="style.css"> <!-- Use same CSS -->
+<style>
+    /* Container styling matches your project UI */
+    body {
+        background: #eaf3f8;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 40px 20px;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    .contact-container {
+        background: #ffffff;
+        width: 90%;
+        max-width: 800px;
+        padding: 40px 50px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        animation: fadeIn 0.3s ease;
+    }
+
+    .section-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #222;           /* main title black */
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.section-title .medi {
+    color: #0078b7;        /* Medi blue*/
+    font-weight: 800;
+}
+
+.section-title .co {
+    color: #00bcd4;        /* Co light blue */
+    font-weight: 800;
+}
+
+    .contact-container p {
+        font-size: 16px;
+        color: #444;
+        margin-bottom: 18px;
+        line-height: 1.6;
+    }
+
+    /* Form */
+    form {
+        margin-top: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    input, textarea {
+        width: 100%;
+        padding: 14px 16px;
+        font-size: 15px;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        transition: 0.2s;
+        resize: none;
+    }
+
+    input:focus, textarea:focus {
+        border-color: #00bcd4;
+        box-shadow: 0 0 0 2px rgba(0,188,212,0.2);
+        outline: none;
+    }
+
+    /* Button */
+    .submit-btn {
+        padding: 14px;
+        background: #00bcd4;
+        color: #fff;
+        font-size: 16px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .submit-btn:hover {
+        background: #009bb0;
+    }
+
+    /* Back button */
+    .back-btn {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 22px;
+        background: #0078b7;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 15px;
+        transition: 0.2s;
+    }
+
+    .back-btn:hover {
+        background: #005f91;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+        .contact-container {
+            padding: 25px 20px;
+        }
+        .contact-container h1 {
+            font-size: 22px;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="contact-container">
+  <h1 class="section-title">Contact <span class="medi">Medi</span><span class="co">Co</span></h1>
+
+
+    <p>If you need help, support, or want to share feedback, you can contact us using the form below. 
+       Our team will reach out to you as soon as possible.</p>
+
+    <form method="POST" action="#">
+        <input type="text" placeholder="Full Name" required>
+        <input type="email" placeholder="Email Address" required>
+        <input type="tel" placeholder="Phone Number (Optional)">
+        <textarea rows="5" placeholder="Your Message..." required></textarea>
+
+        <button type="submit" class="submit-btn">Send Message</button>
+    </form>
+
+    <a href="index.php" class="back-btn">← Back to Home</a>
+</div>
+
+</body>
+</html>
