@@ -16,3 +16,9 @@
 *.gif binary
 *.svg binary
 *.ico binary
+
+# Ignore vendor libraries from language stats
+/vendor/* linguist-vendored
+
+# Force PHP for all PHP files
+*.php linguist-language=PHP
