@@ -8,7 +8,7 @@ $dbname = "miniproject";
 $conn = new mysqli($host, $user, $password, $dbname);
 if ($conn->connect_error) die("DB Error");
 
-// ✅ Check session values
+// ✅ Check session
 if (!isset($_SESSION['patient_id']) || !isset($_SESSION['hospital_id'])) {
     header("Location: register.php");
     exit();
@@ -28,7 +28,7 @@ if (!$patient) {
     die("❌ Patient not found!");
 }
 
-// ✅ Payment check
+// ✅ Payment check (18+)
 if ($patient['age'] >= 18 && (!isset($_SESSION['paid']) || $_SESSION['paid'] == false)) {
     header("Location: payment.php");
     exit();
@@ -41,7 +41,7 @@ $stmt->execute();
 $hospital_name = $stmt->get_result()->fetch_assoc()['name'] ?? "Hospital";
 $stmt->close();
 
-// ✅ Clear session
+// ✅ Remove session after displaying
 unset($_SESSION['patient_id']);
 unset($_SESSION['hospital_id']);
 unset($_SESSION['paid']);
@@ -52,7 +52,7 @@ unset($_SESSION['patient_uid']);
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MediCo • Print Token</title>
+<title>MediCo • Token Details</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',sans-serif;}
@@ -71,7 +71,6 @@ body{
   max-width:420px;
   padding:35px 40px;
   text-align:center;
-  position:relative;
 }
 .logo{
   font-size:32px;
@@ -111,7 +110,7 @@ body{
   font-size:14px;
   color:#777;
 }
-.print-btn{
+.ok-btn{
   margin-top:20px;
   padding:12px 28px;
   background:linear-gradient(135deg,#00bcd4,#0097ff);
@@ -119,80 +118,26 @@ body{
   border:none;
   border-radius:8px;
   font-size:15px;
-  font-weight:600;
   cursor:pointer;
-  transition:all 0.3s ease;
-  box-shadow:0 4px 12px rgba(0,150,200,0.3);
+  font-weight:600;
+  transition:.3s;
 }
-.print-btn:hover{
-  background:linear-gradient(135deg,#00a4c0,#007bff);
-  box-shadow:0 6px 18px rgba(0,130,190,0.4);
+.ok-btn:hover{
+  background:linear-gradient(135deg,#009fc0,#007bf0);
   transform:translateY(-2px);
 }
-footer{
-  text-align:center;
+.info-text{
+  font-size:13px;
   color:#777;
-  font-size:14px;
-  margin-top:20px;
-}
-
-/* ✅ Print Mode (Thermal printer) */
-@media print{
-  body{font-family:monospace;font-size:13px;background:#fff;}
-  .container{
-    width:55mm;
-    padding:0;
-    margin:0;
-    box-shadow:none;
-    border-radius:0;
-  }
-  .logo,.title,.print-btn,footer,#successPopup{display:none;}
-  .ticket{border:none;padding:0;}
-  .token{font-size:22px;margin:5px 0;}
-}
-
-/* 🌟 Success Popup */
-#successPopup{
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  background:#fff;
-  border:1px solid #d9e7f1;
-  box-shadow:0 4px 20px rgba(0,0,0,0.15);
-  border-radius:12px;
-  padding:30px 40px;
-  text-align:center;
-  z-index:10;
-  opacity:0;
-  visibility:hidden;
-  transition:opacity 0.4s ease,visibility 0.4s ease;
-}
-#successPopup.show{
-  opacity:1;
-  visibility:visible;
-}
-#successPopup i{
-  font-size:40px;
-  color:#00bcd4;
-  margin-bottom:10px;
-}
-#successPopup h3{
-  color:#333;
-  font-size:18px;
-  margin-bottom:5px;
-}
-#successPopup p{
-  color:#555;
-  font-size:14px;
+  margin-top:12px;
 }
 </style>
 </head>
-<body onload="autoPrint()">
+<body>
 
 <div class="container">
   <div class="logo">Medi<span>Co</span></div>
-  <h2 class="title">Patient Token Generated</h2>
+  <h2 class="title">Patient Token Details</h2>
 
   <div class="ticket">
     <p><strong>Hospital:</strong> <?= htmlspecialchars($hospital_name) ?></p>
@@ -204,39 +149,19 @@ footer{
     <p class="token">Token: <?= str_pad($patient['token'], 2, "0", STR_PAD_LEFT) ?></p>
     <p class="date"><?= htmlspecialchars($patient['token_date']) ?></p>
   </div>
+<!-- 
+  <button class="ok-btn" onclick="window.location.href='index.php'">
+    <i class="fa fa-check-circle"></i> Done
+  </button> -->
 
-  <button class="print-btn" onclick="rePrint()"><i class="fa fa-print"></i> Re-Print</button>
-
-  <footer>Window will close automatically after printing...</footer>
-
-  <!-- ✅ Success Popup -->
-  <div id="successPopup">
-    <i class="fa fa-check-circle"></i>
-    <h3>Token Printed Successfully</h3>
-    <p>Redirecting to home...</p>
-  </div>
+  <p class="info-text">Redirecting to home page...</p>
 </div>
 
 <script>
-function autoPrint() {
-  setTimeout(() => {
-    window.print();
-
-    // Show popup after print
-    setTimeout(() => {
-      document.getElementById('successPopup').classList.add('show');
-    }, 1000);
-
-    // Redirect after 4 seconds
-    setTimeout(() => {
-      window.location.href = "index.php";
-    }, 4000);
-  }, 800);
-}
-
-function rePrint() {
-  window.print();
-}
+// ✅ Auto redirect after 5 seconds
+setTimeout(() => {
+    window.location.href = "index.php";
+}, 5000);
 </script>
 
 </body>

@@ -19,7 +19,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($new !== $confirm) {
         $message = 'New passwords do not match.';
     } else {
-        // fetch admin data
         $stmt = $conn->prepare("SELECT id,password FROM users WHERE username=? AND role='admin'");
         $stmt->bind_param("s", $admin_username);
         $stmt->execute();
@@ -41,48 +40,145 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Change Password - Admin</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<meta charset="UTF-8">
+<title>MediCo • Change Password</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+/* ✅ MATCHING ADMIN UI */
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',sans-serif;}
+body{background:#eaf3f8;display:flex;min-height:100vh;}
+
+.sidebar{
+  width:230px;background:#fff;border-right:1px solid #ddd;
+  display:flex;flex-direction:column;position:fixed;
+  top:0;bottom:0;left:0;padding-top:20px;
+}
+.logo{font-size:26px;font-weight:700;text-align:center;margin-bottom:30px;color:#0078b7;}
+.logo span{color:#00bcd4;}
+
+.nav a{
+  display:flex;align-items:center;gap:10px;padding:12px 20px;
+  color:#555;text-decoration:none;font-size:15px;
+  transition:0.2s;
+}
+.nav a:hover,.nav a.active{
+  background:#00bcd4;color:#fff;border-radius:8px;margin:0 10px;
+}
+
+.main{
+  flex:1;
+  margin-left:230px;
+  padding:30px;
+}
+
+.header-title{
+  font-size:22px;
+  font-weight:600;
+  color:#0078b7;
+}
+
+.card{
+  background:#fff;
+  padding:25px;
+  border-radius:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+  margin-top:20px;
+}
+
+.form-field{margin-bottom:18px;}
+.form-field label{
+  display:block;
+  font-size:14px;
+  margin-bottom:6px;
+  color:#0078b7;
+}
+.form-field input{
+  width:100%;
+  padding:10px;
+  font-size:14px;
+  border-radius:8px;
+  border:1px solid #ccc;
+}
+
+.btn{
+  padding:10px 18px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:14px;
+}
+.primary{
+  background:#00bcd4;color:#fff;
+}
+.primary:hover{
+  background:#009bb0;
+}
+.ghost{
+  background:#fff;color:#0078b7;border:1px solid #cce8f3;
+}
+.hint{
+  color:#0078b7;
+  margin-bottom:10px;
+  font-size:14px;
+}
+</style>
+
 </head>
 <body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="logo">Medi<span>Co</span></div>
-    <nav class="nav">
-      <a href="admin.php"><i class="fa fa-house"></i> Dashboard</a>
-      <a class="active" href="#"><i class="fa fa-key"></i> Change Password</a>
-      <form method="POST" style="margin-top:12px;">
-        <button name="logout" formaction="admin.php" class="btn ghost" style="width:100%;display:flex;align-items:center;gap:8px"><i class="fa fa-right-from-bracket"></i> Back</button>
-      </form>
-    </nav>
-  </aside>
 
-  <main class="main">
-    <div class="header-row">
-      <div>
-        <div class="header-title">Change Password</div>
-        <div class="small hint">Securely change your admin password</div>
-      </div>
-    </div>
+<div class="sidebar">
+  <a href="index.php" style="text-decoration:none;"><div class="logo">Medi<span>Co</span></div></a>
 
-    <div class="card" style="max-width:520px;">
-      <?php if($message): ?><p class="hint"><?= htmlspecialchars($message) ?></p><?php endif; ?>
-      <form method="POST">
-        <div class="form-field"><label>Current Password</label><input type="password" name="current_password" required></div>
-        <div class="form-field"><label>New Password</label><input type="password" name="new_password" required></div>
-        <div class="form-field"><label>Confirm New Password</label><input type="password" name="confirm_password" required></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn primary" type="submit">Change Password</button>
-          <a href="admin.php" class="btn ghost" style="text-decoration:none;display:inline-flex;align-items:center">Cancel</a>
-        </div>
-      </form>
-    </div>
+  <nav class="nav">
+    <a href="admin.php"><i class="fa fa-house"></i> Dashboard</a>
+    <a class="active" href="#"><i class="fa fa-key"></i> Change Password</a>
+  </nav>
 
-  </main>
+  <form method="POST" action="admin.php" style="margin-top:auto;padding:10px 20px;">
+    <button name="logout" class="btn ghost" style="width:100%;display:flex;align-items:center;gap:8px;">
+      <i class="fa fa-right-from-bracket"></i> Back
+    </button>
+  </form>
 </div>
+
+<div class="main">
+  <div class="header-row">
+    <div class="header-title">Change Password</div>
+  </div>
+
+  <div class="card" style="max-width:480px;">
+    <?php if($message): ?>
+      <div class="hint"><?= htmlspecialchars($message) ?></div>
+    <?php endif; ?>
+
+    <form method="POST">
+      <div class="form-field">
+        <label>Current Password</label>
+        <input type="password" name="current_password" required>
+      </div>
+
+      <div class="form-field">
+        <label>New Password</label>
+        <input type="password" name="new_password" required>
+      </div>
+
+      <div class="form-field">
+        <label>Confirm New Password</label>
+        <input type="password" name="confirm_password" required>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn primary" type="submit">Change Password</button>
+        <a href="admin.php" class="btn ghost" style="text-decoration:none;display:flex;align-items:center;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
 </body>
 </html>

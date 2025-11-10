@@ -109,7 +109,7 @@
 <body>
   <div class="container">
     <div class="logo">Medi<span>Co</span></div>
-    <h2>Welcome to MediCo Hospital Token System</h2>
+    <h2>Welcome to MediCo OutPatient Management System</h2>
 
     <div class="btn-group">
       <a href="register.php"><i class="fa fa-user"></i> User Registration</a>

@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             if ($contact_email!=='' && !is_email($contact_email)) $errors[] = "Invalid contact email.";
             if ($contact!=='' && !ok_phone($contact)) $errors[] = "Main contact (contact) must be 10 digits.";
 
-            // Unique code
+            // Unique code check
             $stmt = $mysqli->prepare("SELECT id FROM hospitals WHERE hospital_code=? LIMIT 1");
             $stmt->bind_param("s", $hospital_code);
             $stmt->execute();
@@ -93,15 +93,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             if (empty($errors)) {
                 $mysqli->begin_transaction();
                 try {
-                    // Create admin user (role=admin). Hospital link will be set after hospital insert.
+                    // ✅ FIXED — CREATE ADMIN USER WITH hospital_id = NULL (not 0)
                     $hash = password_hash($admin_password, PASSWORD_DEFAULT);
-                    $u = $mysqli->prepare("INSERT INTO users (username, password, role, hospital_id) VALUES (?, ?, 'admin', 0)");
+                    $u = $mysqli->prepare("INSERT INTO users (username, password, role, hospital_id) VALUES (?, ?, 'admin', NULL)");
                     $u->bind_param("ss", $admin_username, $hash);
                     $u->execute();
                     $admin_user_id = $u->insert_id;
                     $u->close();
 
-                    // Insert hospital (approved=0 by default, deleted=0)
+                    // Insert hospital
                     $q = $mysqli->prepare("
                         INSERT INTO hospitals
                         (name, hospital_code, location, contact, address, contact_person, contact_phone, contact_email, license_no, license_doc, dlt_registered, admin_user_id, approved, deleted)
@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             }
         }
 
-        // EDIT
+        // EDIT HOSPITAL
         if (isset($_POST['action']) && $_POST['action']==='edit') {
             $hid = (int)($_POST['hid'] ?? 0);
             if ($hid<=0) $errors[] = "Invalid hospital id.";
@@ -185,14 +185,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
                     WHERE id=? AND deleted=0
                 ");
                 $q->bind_param("ssssssssiii",
-                    $name, $location, $contact, $address, $contact_person, $contact_phone, $contact_email, $license_no, $dlt_registered, $approved, $hid
+                    $name, $location, $contact, $address, $contact_person, $contact_phone, $contact_email,
+                    $license_no, $dlt_registered, $approved, $hid
                 );
                 $q->execute(); $q->close();
                 $success = "Hospital updated.";
             }
         }
 
-        // DELETE (soft)
+        // DELETE HOSPITAL (soft)
         if (isset($_POST['action']) && $_POST['action']==='delete') {
             $hid = (int)($_POST['hid'] ?? 0);
             if ($hid>0) {
@@ -207,7 +208,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         if (isset($_POST['action']) && $_POST['action']==='toggle_approve') {
             $hid = (int)($_POST['hid'] ?? 0);
             if ($hid>0) {
-                // Read current status
                 $s = $mysqli->prepare("SELECT approved FROM hospitals WHERE id=? AND deleted=0");
                 $s->bind_param("i", $hid);
                 $s->execute();
