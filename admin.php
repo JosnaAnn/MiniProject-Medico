@@ -1,12 +1,9 @@
 <?php
 session_start();
-$host = "localhost";
-$user = "root";
-$password = "";
-$dbname = "miniproject";
+error_reporting(0);
 
-$conn = new mysqli($host, $user, $password, $dbname);
-if ($conn->connect_error) die("Database Error");
+$conn = new mysqli("localhost", "root", "", "miniproject");
+if ($conn->connect_error) die("DB Error");
 
 if (!isset($_SESSION['admin_logged_in']) || !isset($_SESSION['admin_hospital_id'])) {
     header("Location: login.php");
@@ -14,425 +11,248 @@ if (!isset($_SESSION['admin_logged_in']) || !isset($_SESSION['admin_hospital_id'
 }
 
 $hospital_id = $_SESSION['admin_hospital_id'];
-$admin_username = $_SESSION['username'] ?? "";
+$admin_username = $_SESSION['username'] ?? '';
+$section = $_GET['section'] ?? 'dashboard';
 
-// FETCH HOSPITAL NAME
-$hospital_name = "";
-$stmt = $conn->prepare("SELECT name FROM hospitals WHERE id=?");
-$stmt->bind_param("i", $hospital_id);
-$stmt->execute();
-$res = $stmt->get_result();
-if ($row = $res->fetch_assoc()) $hospital_name = $row['name'];
-$stmt->close();
+// FETCH hospital name
+$hospital = $conn->query("SELECT name FROM hospitals WHERE id=$hospital_id")->fetch_assoc()['name'] ?? "Hospital";
 
-// LOGOUT
-if (isset($_POST['logout'])) {
-    session_destroy();
-    header("Location: login.php");
-    exit();
-}
-
-/////////////////////////////
-// ✅ TODAY SUMMARY SECTION
-/////////////////////////////
-
-$today = date("Y-m-d");
-$stmt = $conn->prepare("SELECT COUNT(*) AS total_today FROM patients WHERE hospital_id=? AND token_date=?");
-$stmt->bind_param("is", $hospital_id, $today);
-$stmt->execute();
-$total_today = $stmt->get_result()->fetch_assoc()['total_today'] ?? 0;
-$stmt->close();
-
-$dept_today = [];
-$stmt = $conn->prepare("
-    SELECT department, COUNT(*) AS count
-    FROM patients
-    WHERE hospital_id=? AND token_date=?
-    GROUP BY department
-");
-$stmt->bind_param("is", $hospital_id, $today);
-$stmt->execute();
-$rs = $stmt->get_result();
-while ($r = $rs->fetch_assoc()) {
-    $dept_today[$r['department']] = $r['count'];
-}
-$stmt->close();
-
-/////////////////////////////
-// EXPORT FUNCTIONS
-/////////////////////////////
-
+// Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // EXPORT FILTERED
-    if (isset($_POST['export_filtered'])) {
-        $dept = $_POST['excel_department'] ?? '';
+    // Logout
+    if (isset($_POST['logout'])) {
+        session_destroy();
+        header("Location: login.php");
+        exit();
+    }
+
+    // Add department
+    if (isset($_POST['add_department'])) {
+        $dept = trim($_POST['department']);
         if ($dept) {
-            $stmt = $conn->prepare("SELECT * FROM patients WHERE hospital_id=? AND department=? ORDER BY id DESC");
+            $stmt = $conn->prepare("INSERT INTO departments (hospital_id, department_name, created_at) VALUES (?, ?, NOW())");
             $stmt->bind_param("is", $hospital_id, $dept);
-            $filename = "patients_{$dept}.xls";
+            $stmt->execute();
+            $stmt->close();
+        }
+        header("Location: admin.php?section=departments");
+        exit();
+    }
+
+    // Delete department
+    if (isset($_POST['delete_department'])) {
+        $did = (int)$_POST['dept_id'];
+        $stmt = $conn->prepare("DELETE FROM departments WHERE id=? AND hospital_id=?");
+        $stmt->bind_param("ii", $did, $hospital_id);
+        $stmt->execute();
+        $stmt->close();
+        header("Location: admin.php?section=departments");
+        exit();
+    }
+
+    // Change password
+    if (isset($_POST['change_password'])) {
+        $old = $_POST['old_password'];
+        $new = $_POST['new_password'];
+        $confirm = $_POST['confirm_password'];
+
+        $stmt = $conn->prepare("SELECT id, password FROM admins WHERE username=? AND hospital_id=? LIMIT 1");
+        $stmt->bind_param("si", $admin_username, $hospital_id);
+        $stmt->execute();
+        $res = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$res || !password_verify($old, $res['password'])) {
+            $msg = "Incorrect old password.";
+        } elseif ($new !== $confirm) {
+            $msg = "New passwords do not match.";
         } else {
-            $stmt = $conn->prepare("SELECT * FROM patients WHERE hospital_id=? ORDER BY id DESC");
-            $stmt->bind_param("i", $hospital_id);
-            $filename = "patients_all.xls";
+            $hash = password_hash($new, PASSWORD_DEFAULT);
+            $upd = $conn->prepare("UPDATE admins SET password=? WHERE id=?");
+            $upd->bind_param("si", $hash, $res['id']);
+            $upd->execute();
+            $upd->close();
+            $msg = "Password updated successfully!";
         }
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        header("Content-Type: application/vnd.ms-excel");
-        header("Content-Disposition: attachment; filename={$filename}");
-        echo "Patient UID\tName\tAge\tGender\tPhone\tPlace\tDepartment\tToken\tDate\n";
-        while ($r = $res->fetch_assoc()) {
-            echo "{$r['patient_uid']}\t{$r['name']}\t{$r['age']}\t{$r['gender']}\t{$r['phone']}\t{$r['place']}\t{$r['department']}\t{$r['token']}\t{$r['token_date']}\n";
-        }
-        exit();
-    }
-
-    // EXPORT ALL
-    if (isset($_POST['export_all'])) {
-        $stmt = $conn->prepare("SELECT * FROM patients WHERE hospital_id=? ORDER BY id DESC");
-        $stmt->bind_param("i", $hospital_id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        header("Content-Type: application/vnd.ms-excel");
-        header("Content-Disposition: attachment; filename=all_patients.xls");
-        echo "Patient UID\tName\tAge\tGender\tPhone\tPlace\tDepartment\tToken\tDate\n";
-        while ($r = $res->fetch_assoc()) {
-            echo "{$r['patient_uid']}\t{$r['name']}\t{$r['age']}\t{$r['gender']}\t{$r['phone']}\t{$r['place']}\t{$r['department']}\t{$r['token']}\t{$r['token_date']}\n";
-        }
-        exit();
-    }
-
-    // EXPORT SUMMARY
-    if (isset($_POST['export_summary'])) {
-        $stmt = $conn->prepare("
-            SELECT DATE(token_date) AS day, department, COUNT(*) AS count
-            FROM patients
-            WHERE hospital_id=?
-            GROUP BY day, department
-            ORDER BY day DESC
-        ");
-        $stmt->bind_param("i", $hospital_id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        header("Content-Type: application/vnd.ms-excel");
-        header("Content-Disposition: attachment; filename=department_summary.xls");
-        echo "Date\tDepartment\tRegistrations\n";
-        while ($r = $res->fetch_assoc()) {
-            echo "{$r['day']}\t{$r['department']}\t{$r['count']}\n";
-        }
+        header("Location: admin.php?section=change_password&msg=" . urlencode($msg));
         exit();
     }
 }
 
-/////////////////////////////
-// FETCH DEPARTMENTS
-/////////////////////////////
-
+// DEPARTMENTS
 $departments = [];
-$dq = $conn->prepare("SELECT DISTINCT department FROM patients WHERE hospital_id=?");
-$dq->bind_param("i", $hospital_id);
-$dq->execute();
-$dres = $dq->get_result();
-while ($d = $dres->fetch_assoc()) $departments[] = $d['department'];
-$dq->close();
+$res = $conn->query("SELECT id, department_name, created_at FROM departments WHERE hospital_id=$hospital_id ORDER BY department_name");
+while ($r = $res->fetch_assoc()) $departments[] = $r;
 
-/////////////////////////////
-// FETCH PATIENTS TABLE
-/////////////////////////////
+// Today’s Summary
+$today = date("Y-m-d");
+$total_today = $conn->query("SELECT COUNT(*) AS c FROM patients WHERE hospital_id=$hospital_id AND token_date='$today'")->fetch_assoc()['c'] ?? 0;
+$dept_today = [];
+$rs = $conn->query("SELECT department, COUNT(*) AS c FROM patients WHERE hospital_id=$hospital_id AND token_date='$today' GROUP BY department");
+while ($r = $rs->fetch_assoc()) $dept_today[$r['department']] = $r['c'];
 
-$filter = $_GET['department'] ?? '';
+// Chart Data
+$labels = [];
+for ($i = 6; $i >= 0; $i--) $labels[] = date("Y-m-d", strtotime("-$i days"));
+$chart_data = [];
+$colors = ["#0078b7","#00bcd4","#ff9800","#4caf50","#9c27b0","#f44336"];
+$q = $conn->prepare("SELECT department, token_date, COUNT(*) AS c FROM patients WHERE hospital_id=? AND token_date BETWEEN ? AND ? GROUP BY department, token_date");
+$start = $labels[0]; $end = end($labels);
+$q->bind_param("iss", $hospital_id, $start, $end);
+$q->execute();
+$res = $q->get_result();
+while ($r = $res->fetch_assoc()) $chart_data[$r['department']][$r['token_date']] = $r['c'];
+$q->close();
+$datasets = [];
+$ci = 0;
+foreach ($chart_data as $d => $dt) {
+    $vals = [];
+    foreach ($labels as $l) $vals[] = $dt[$l] ?? 0;
+    $datasets[] = ["label"=>$d,"borderColor"=>$colors[$ci++ % count($colors)],"fill"=>false,"data"=>$vals];
+}
+
+// Patients
+$f_dept = $_GET['department'] ?? '';
+$f_date = $_GET['date'] ?? '';
 $sql = "SELECT * FROM patients WHERE hospital_id=?";
 $params = [$hospital_id];
 $types = "i";
-
-if ($filter != "") {
-    $sql .= " AND department=?";
-    $params[] = $filter;
-    $types .= "s";
-}
-
-$sql .= " ORDER BY token_date DESC";
-$pstmt = $conn->prepare($sql);
-$pstmt->bind_param($types, ...$params);
-$pstmt->execute();
-$patients = $pstmt->get_result();
-
-/////////////////////////////
-// DEPT SUMMARY TABLE
-/////////////////////////////
-
-$summary = [];
-$q = $conn->prepare("
-    SELECT DATE(token_date) AS day, department, COUNT(*) AS count
-    FROM patients
-    WHERE hospital_id=?
-    GROUP BY day, department
-    ORDER BY day DESC
-");
-$q->bind_param("i", $hospital_id);
-$q->execute();
-$res = $q->get_result();
-while ($r = $res->fetch_assoc()) {
-    $summary[$r['day']][$r['department']] = $r['count'];
-}
-$q->close();
+if ($f_dept) {$sql .= " AND department=?"; $params[] = $f_dept; $types .= "s";}
+if ($f_date) {$sql .= " AND token_date=?"; $params[] = $f_date; $types .= "s";}
+$sql .= " ORDER BY token_date DESC, id DESC";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param($types, ...$params);
+$stmt->execute();
+$patients = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title><?= htmlspecialchars($hospital_name) ?> • Admin Panel</title>
+<title><?= htmlspecialchars($hospital) ?> • Admin Panel</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-/* ✅ SAME ORIGINAL UI — DO NOT EDIT */
-*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',sans-serif;}
-body{background:#eaf3f8;display:flex;min-height:100vh;}
-.sidebar{
-  width:230px;background:#fff;border-right:1px solid #ddd;
-  display:flex;flex-direction:column;
-  position:fixed;top:0;bottom:0;left:0;padding-top:20px;
-}
-.logo{font-size:26px;font-weight:700;text-align:center;margin-bottom:30px;color:#0078b7;}
+body{font-family:'Segoe UI',sans-serif;background:#eaf3f8;margin:0;display:flex;}
+.sidebar{width:230px;background:#fff;border-right:1px solid #ddd;display:flex;flex-direction:column;position:fixed;top:0;bottom:0;padding-top:20px;}
+.logo{font-size:26px;font-weight:700;color:#0078b7;text-align:center;margin-bottom:30px;}
 .logo span{color:#00bcd4;}
-.nav a{
-  display:flex;align-items:center;gap:10px;padding:12px 20px;color:#555;text-decoration:none;
-  transition:0.2s;font-size:15px;
-}
-.nav a:hover,.nav a.active{
-  background:#00bcd4;color:#fff;border-radius:8px;margin:0 10px;
-}
+.nav a{display:block;padding:12px 20px;color:#444;text-decoration:none;border-radius:8px;margin:0 10px;}
+.nav a:hover,.nav a.active{background:#00bcd4;color:#fff;}
 .main{flex:1;margin-left:230px;padding:30px;}
-.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px;}
-.header h1{font-size:22px;color:#0078b7;}
-button{
-  background:#00bcd4;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;
-}
-button:hover{background:#009bb0;}
 .card{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05);padding:20px;margin-bottom:25px;}
-h2{font-size:18px;color:#0078b7;margin-bottom:15px;}
-form{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:15px;}
-input,select{padding:10px;border:1px solid #ccc;border-radius:8px;font-size:14px;flex:1;min-width:150px;}
+h1{color:#0078b7;}
+button{background:#00bcd4;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;}
+input,select{padding:10px;border:1px solid #ccc;border-radius:8px;}
 table{width:100%;border-collapse:collapse;margin-top:10px;}
-th,td{padding:10px 12px;border-bottom:1px solid #eee;text-align:left;}
-th{background:#f8f9fa;color:#333;}
-tr:hover{background:#f2faff;}
-footer{text-align:center;font-size:12px;color:#777;margin-top:20px;}
-.hidden{display:none;}
-.no-records{text-align:center;color:#777;padding:20px;}
+th,td{border-bottom:1px solid #eee;padding:10px;text-align:left;}
+th{background:#f8f9fa;}
+.small{font-size:13px;color:#777;}
 </style>
 </head>
 <body>
-
 <div class="sidebar">
-  <a href="index.php" style="text-decoration:none;"><div class="logo">Medi<span>Co</span></div></a>
+  <div class="logo">Medi<span>Co</span></div>
   <nav class="nav">
-    <a href="#" class="nav-link active" data-section="dashboard"><i class="fa fa-house"></i> Dashboard</a>
-    <a href="#" class="nav-link" data-section="patients"><i class="fa fa-user-injured"></i> Patients</a>
-    <a href="#" class="nav-link" data-section="departments"><i class="fa fa-chart-column"></i> Departments</a>
-    <a href="change_password.php" class="nav-link"><i class="fa fa-key"></i> Change Password</a>
+    <a href="admin.php?section=dashboard" class="<?=($section=='dashboard')?'active':''?>"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="admin.php?section=patients" class="<?=($section=='patients')?'active':''?>"><i class="fa fa-user-injured"></i> Patients</a>
+    <a href="admin.php?section=departments" class="<?=($section=='departments')?'active':''?>"><i class="fa fa-building"></i> Departments</a>
+    <a href="admin.php?section=change_password" class="<?=($section=='change_password')?'active':''?>"><i class="fa fa-key"></i> Change Password</a>
   </nav>
-  <form method="POST" style="margin-top:auto;padding:10px 20px;">
-    <button name="logout"><i class="fa fa-right-from-bracket"></i> Logout</button>
-  </form>
+  <form method="POST" style="padding:10px 20px;margin-top:auto;"><button name="logout"><i class="fa fa-right-from-bracket"></i> Logout</button></form>
 </div>
 
 <div class="main">
-  <div class="header">
-    <h1><?= htmlspecialchars($hospital_name) ?> Admin Panel</h1>
-  </div>
+<h1><?= htmlspecialchars($hospital) ?> Admin Panel</h1>
 
-  <!-- ✅ Dashboard -->
-  <section id="dashboard" class="section">
-
-    <!-- ✅ SUMMARY CARDS -->
-    <div class="card">
-      <div style="display:flex;gap:20px;flex-wrap:wrap;">
-        
-        <div style="background:#e9f8ff;padding:15px 20px;border-radius:12px;min-width:160px;">
-          <h3 style="font-size:15px;color:#0078b7;margin-bottom:5px;">Today Total</h3>
-          <div style="font-size:22px;font-weight:600;"><?= $total_today ?></div>
-        </div>
-
-        <?php foreach ($dept_today as $d => $count): ?>
-        <div style="background:#f9fcff;padding:15px 20px;border-radius:12px;min-width:160px;">
-          <h3 style="font-size:15px;color:#0078b7;margin-bottom:5px;"><?= htmlspecialchars($d) ?></h3>
-          <div style="font-size:22px;font-weight:600;"><?= $count ?></div>
-        </div>
-        <?php endforeach; ?>
-
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>All Patients Overview</h2>
-      <form method="POST">
-        <button name="export_all"><i class="fa fa-download"></i> Export All Data</button>
-      </form>
-      <table>
-        <thead>
-          <tr><th>UID</th><th>Name</th><th>Age</th><th>Gender</th><th>Phone</th>
-              <th>Place</th><th>Dept</th><th>Token</th><th>Date</th></tr>
-        </thead>
-        <tbody>
-        <?php if ($patients->num_rows > 0): foreach($patients as $r): ?>
-          <tr>
-            <td><?= $r['patient_uid'] ?></td>
-            <td><?= $r['name'] ?></td>
-            <td><?= $r['age'] ?></td>
-            <td><?= $r['gender'] ?></td>
-            <td><?= $r['phone'] ?></td>
-            <td><?= $r['place'] ?></td>
-            <td><?= $r['department'] ?></td>
-            <td><?= str_pad($r['token'],2,"0",STR_PAD_LEFT) ?></td>
-            <td><?= $r['token_date'] ?></td>
-          </tr>
-        <?php endforeach; else: ?>
-          <tr><td colspan="9" class="no-records">No records available.</td></tr>
-        <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-
-  </section>
-
-  <!-- ✅ Patients -->
-  <section id="patients" class="section hidden">
-    <div class="card">
-      <h2>Filter by Department</h2>
-
-      <form method="GET">
-        <input type="hidden" name="section" value="patients">
-        <select name="department">
-          <option value="">All Departments</option>
-          <?php foreach($departments as $dep): ?>
-          <option value="<?= $dep ?>" <?= ($filter==$dep)?'selected':'' ?>><?= $dep ?></option>
-          <?php endforeach; ?>
-        </select>
-        <button type="submit"><i class="fa fa-filter"></i> Apply</button>
-      </form>
-
-      <form method="POST">
-        <input type="hidden" name="excel_department" value="<?= htmlspecialchars($filter) ?>">
-        <button name="export_filtered"><i class="fa fa-download"></i> Export Filtered</button>
-      </form>
-
-      <table>
-        <thead>
-          <tr><th>UID</th><th>Name</th><th>Age</th><th>Gender</th><th>Phone</th><th>Place</th><th>Dept</th><th>Token</th><th>Date</th></tr>
-        </thead>
-        <tbody>
-        <?php if ($patients->num_rows > 0): foreach($patients as $r): ?>
-          <tr>
-            <td><?= $r['patient_uid'] ?></td>
-            <td><?= $r['name'] ?></td>
-            <td><?= $r['age'] ?></td>
-            <td><?= $r['gender'] ?></td>
-            <td><?= $r['phone'] ?></td>
-            <td><?= $r['place'] ?></td>
-            <td><?= $r['department'] ?></td>
-            <td><?= str_pad($r['token'],2,"0",STR_PAD_LEFT) ?></td>
-            <td><?= $r['token_date'] ?></td>
-          </tr>
-        <?php endforeach; else: ?>
-          <tr><td colspan="9" class="no-records">No patients found.</td></tr>
-        <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- ✅ Departments -->
-  <section id="departments" class="section hidden">
-    <div class="card">
-      <h2>Daily Department Summary</h2>
-      <form method="POST">
-        <button name="export_summary"><i class="fa fa-download"></i> Export Summary</button>
-      </form>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <?php foreach ($departments as $dep): ?><th><?= $dep ?></th><?php endforeach; ?>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php if (empty($summary)): ?>
-          <tr><td colspan="<?= count($departments)+2 ?>" class="no-records">No data available.</td></tr>
-        <?php else: ?>
-          <?php foreach($summary as $day => $depts): ?>
-            <tr>
-              <td><?= $day ?></td>
-              <?php
-                $total = 0;
-                foreach($departments as $dep):
-                    $count = $depts[$dep] ?? 0;
-                    $total += $count;
-              ?>
-                <td><?= $amount = $count ?></td>
-              <?php endforeach; ?>
-              <td><strong><?= $total ?></strong></td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-        </tbody>
-      </table>
-
-    </div>
-  </section>
-
-  <footer>© <?= date("Y") ?> MediCo Admin Panel</footer>
-
+<!-- DASHBOARD -->
+<?php if ($section=="dashboard"): ?>
+<div class="card">
+  <h3>Today Summary (<?= date("d M Y") ?>)</h3>
+  <p>Total Patients: <b><?= $total_today ?></b></p>
+  <?php foreach($dept_today as $d=>$c): ?><p><?= $d ?> — <b><?= $c ?></b></p><?php endforeach; ?>
+  <canvas id="chart" height="100"></canvas>
+  <script>
+  new Chart(document.getElementById('chart'), {
+    type:'line',
+    data:{labels:<?=json_encode($labels)?>,datasets:<?=json_encode($datasets)?>},
+    options:{scales:{y:{beginAtZero:true}}}
+  });
+  </script>
 </div>
+<?php endif; ?>
 
+<!-- PATIENTS -->
+<?php if ($section=="patients"): ?>
+<div class="card">
+  <h3>Patients</h3>
+  <form method="GET" style="display:flex;gap:10px;margin-bottom:10px;">
+    <input type="hidden" name="section" value="patients">
+    <select name="department" onchange="this.form.submit()">
+      <option value="">All Departments</option>
+      <?php foreach($departments as $d): ?>
+      <option value="<?=$d['department_name']?>" <?=($f_dept==$d['department_name'])?'selected':''?>><?=$d['department_name']?></option>
+      <?php endforeach; ?>
+    </select>
+    <input type="date" name="date" value="<?=$f_date?>" onchange="this.form.submit()">
+  </form>
+  <table>
+    <thead><tr><th>UID</th><th>Name</th><th>Age</th><th>Gender</th><th>Dept</th><th>Token</th><th>Date</th></tr></thead>
+    <tbody>
+      <?php if($patients): foreach($patients as $p): ?>
+      <tr><td><?=$p['patient_uid']?></td><td><?=$p['name']?></td><td><?=$p['age']?></td><td><?=$p['gender']?></td><td><?=$p['department']?></td><td><?=$p['token']?></td><td><?=$p['token_date']?></td></tr>
+      <?php endforeach; else: ?><tr><td colspan="7" class="small">No records found.</td></tr><?php endif; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
+
+<!-- DEPARTMENTS -->
+<?php if ($section=="departments"): ?>
+<div class="card">
+  <h3>Departments</h3>
+  <form method="POST" style="display:flex;gap:10px;margin-bottom:10px;">
+    <input type="text" name="department" placeholder="Enter department name" required>
+    <button name="add_department"><i class="fa fa-plus"></i> Add</button>
+  </form>
+  <table>
+    <thead><tr><th>Name</th><th>Total Patients</th><th>Today</th><th>Action</th></tr></thead>
+    <tbody>
+      <?php foreach($departments as $d): 
+        $n=$d['department_name'];
+        $total=$conn->query("SELECT COUNT(*) AS c FROM patients WHERE hospital_id=$hospital_id AND department='$n'")->fetch_assoc()['c'];
+        $todayp=$conn->query("SELECT COUNT(*) AS c FROM patients WHERE hospital_id=$hospital_id AND department='$n' AND token_date='$today'")->fetch_assoc()['c'];
+      ?>
+      <tr><td><?=$n?></td><td><?=$total?></td><td><?=$todayp?></td>
+        <td><form method="POST" onsubmit="return confirm('Delete this department?')">
+          <input type="hidden" name="dept_id" value="<?=$d['id']?>"><button name="delete_department" style="background:#c62828;">Delete</button></form></td></tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+<?php endif; ?>
+
+<!-- CHANGE PASSWORD -->
+<?php if ($section=="change_password"): ?>
+<div class="card" style="max-width:500px;">
+  <h3>Change Password</h3>
+  <?php if(!empty($_GET['msg'])): ?><p class="small" style="color:#0078b7"><?=htmlspecialchars($_GET['msg'])?></p><?php endif; ?>
+  <form method="POST" id="changePassForm" style="display:flex;flex-direction:column;gap:12px;">
+    <input type="password" name="old_password" placeholder="Old Password" required>
+    <input type="password" name="new_password" id="newPass" placeholder="New Password" required>
+    <input type="password" name="confirm_password" id="confirmPass" placeholder="Confirm Password" required>
+    <p id="note" class="small" style="color:#d9534f;display:none;">Passwords do not match</p>
+    <button name="change_password" id="submitBtn" disabled style="opacity:0.6;">Update</button>
+  </form>
+</div>
 <script>
-// ✅ Sidebar Menu Switching (fixed)
-document.querySelectorAll(".nav-link").forEach(link => {
-    link.addEventListener("click", function(e){
-        e.preventDefault();
-
-        // Change Password direct link
-        if (link.getAttribute("href") && link.getAttribute("href") !== "#") {
-            window.location.href = link.getAttribute("href");
-            return;
-        }
-
-        const target = this.dataset.section;
-
-        // Force reload for Patients to enable filter
-        if (target === "patients") {
-            window.location.href = "admin.php?section=patients";
-            return;
-        }
-
-        document.querySelectorAll(".nav-link").forEach(a => a.classList.remove("active"));
-        this.classList.add("active");
-
-        document.querySelectorAll(".section").forEach(sec => sec.classList.add("hidden"));
-        document.getElementById(target).classList.remove("hidden");
-    });
-});
-
-// ✅ Auto-open section after reload
-window.addEventListener("load", () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const section = urlParams.get("section");
-
-    if (section && document.getElementById(section)) {
-        document.querySelectorAll(".nav-link").forEach(a => a.classList.remove("active"));
-        const link = document.querySelector(`[data-section='${section}']`);
-        if (link) link.classList.add("active");
-
-        document.querySelectorAll(".section").forEach(sec => sec.classList.add("hidden"));
-        document.getElementById(section).classList.remove("hidden");
-    }
-});
+const np=document.getElementById('newPass'),cp=document.getElementById('confirmPass'),note=document.getElementById('note'),btn=document.getElementById('submitBtn');
+function check(){if(np.value&&cp.value&&np.value!==cp.value){note.style.display='block';btn.disabled=true;btn.style.opacity='0.6'}else if(np.value&&cp.value){note.style.display='none';btn.disabled=false;btn.style.opacity='1'}else{note.style.display='none';btn.disabled=true;btn.style.opacity='0.6'}}
+np.addEventListener('input',check);cp.addEventListener('input',check);
 </script>
-
+<?php endif; ?>
+</div>
 </body>
 </html>

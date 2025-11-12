@@ -112,8 +112,9 @@
     <h2>Welcome to MediCo OutPatient Management System</h2>
 
     <div class="btn-group">
-      <a href="register.php"><i class="fa fa-user"></i> User Registration</a>
-      <a href="login.php"><i class="fa fa-lock"></i> Admin Login</a>
+      <a href="register.php"><i class="fa fa-user"></i> Patient Registration</a>
+      <a href="hospital_request.php"><i class="fa fa-hospital"></i> Hospital Registration</a> <!-- ✅ Added Button -->
+      <a href="login.php"><i class="fa fa-lock"></i> Login</a>
     </div>
 
     <footer>

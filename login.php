@@ -1,56 +1,64 @@
 <?php
 session_start();
+
+// ✅ Always start fresh — clear old sessions when opening login page
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    session_unset();
+    session_destroy();
+    session_start();
+}
+
+// Database Connection
 $host = "localhost";
 $user = "root";
 $password = "";
 $dbname = "miniproject";
-
 $conn = new mysqli($host, $user, $password, $dbname);
 if ($conn->connect_error) die("Database Error");
-
-$error = "";
 
 // Hardcoded Superadmin
 $superadmin_username = 'superadmin';
 $superadmin_password = 'super123';
 
+$error = "";
+
+// 🧾 Handle Login Submission
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = trim($_POST['username']);
     $password_input = trim($_POST['password']);
 
-    // Super Admin Login
-    if ($username === $superadmin_username) {
-        if ($password_input === $superadmin_password) {
-            $_SESSION['superadmin_logged_in'] = true;
-            $_SESSION['role'] = 'superadmin';
-            $_SESSION['username'] = $superadmin_username;
-            header("Location: superadmin.php");
+    // 1️⃣ Superadmin Login
+    if ($username === $superadmin_username && $password_input === $superadmin_password) {
+        $_SESSION['superadmin_logged_in'] = true;
+        $_SESSION['role'] = 'superadmin';
+        $_SESSION['username'] = $superadmin_username;
+        header("Location: superadmin.php");
+        exit();
+    }
+
+    // 2️⃣ Admin Login (from admins table)
+    $stmt = $conn->prepare("SELECT * FROM admins WHERE username=? LIMIT 1");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    if ($admin = $res->fetch_assoc()) {
+        // Support both hashed and plain-text passwords
+        if ($password_input === $admin['password'] || password_verify($password_input, $admin['password'])) {
+            $_SESSION['admin_logged_in'] = true;
+            $_SESSION['role'] = 'admin';
+            $_SESSION['username'] = $admin['username'];
+            $_SESSION['admin_hospital_id'] = $admin['hospital_id'];
+            header("Location: admin.php");
             exit();
         } else {
             $error = "Incorrect password!";
         }
     } else {
-        // Hospital Admin Login
-        $stmt = $conn->prepare("SELECT * FROM users WHERE username=? AND role='admin'");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        if ($user = $res->fetch_assoc()) {
-            if (password_verify($password_input, $user['password'])) {
-                $_SESSION['admin_logged_in'] = true;
-                $_SESSION['role'] = 'admin';
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['admin_hospital_id'] = $user['hospital_id'];
-                header("Location: admin.php");
-                exit();
-            } else {
-                $error = "Incorrect password!";
-            }
-        } else {
-            $error = "User not found!";
-        }
+        $error = "User not found!";
     }
+
+    $stmt->close();
 }
 ?>
 <!DOCTYPE html>
@@ -152,7 +160,7 @@ button:hover{
     <a href="index.php" style="text-decoration:none;">
       <div class="logo">Medi<span>Co</span></div>
     </a>
-    <h2>Admin Login</h2>
+    <h2>Login</h2>
 
     <?php if(!empty($error)): ?>
       <div class="error"><?= htmlspecialchars($error) ?></div>
